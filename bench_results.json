@@ -1,0 +1,64 @@
+{
+ "seed": 7,
+ "docs": 400,
+ "claims": 6384,
+ "correct_claims": 3200,
+ "wrong_claims": 3184,
+ "by_error": {
+  "scale": {
+   "n": 452,
+   "string": 39.8,
+   "anyvalue": 99.8,
+   "numcheck": 100.0
+  },
+  "period": {
+   "n": 731,
+   "string": 78.0,
+   "anyvalue": 33.8,
+   "numcheck": 100.0
+  },
+  "metric": {
+   "n": 783,
+   "string": 74.8,
+   "anyvalue": 28.5,
+   "numcheck": 100.0
+  },
+  "digit": {
+   "n": 738,
+   "string": 99.5,
+   "anyvalue": 99.1,
+   "numcheck": 99.7
+  },
+  "fabricated": {
+   "n": 480,
+   "string": 98.8,
+   "anyvalue": 97.5,
+   "numcheck": 100.0
+  }
+ },
+ "false_reject_pct": {
+  "string": 74.5,
+  "anyvalue": 19.7,
+  "numcheck": 0.0
+ },
+ "caught_pct": {
+  "string": 79.9,
+  "anyvalue": 66.6,
+  "numcheck": 99.9
+ },
+ "diagnosis_pct": {
+  "scale": 100.0,
+  "period": 100.0,
+  "metric": 98.7
+ },
+ "claims_per_second": 3418,
+ "numcheck_statuses": {
+  "supported_derived": 632,
+  "value_mismatch": 877,
+  "supported": 2570,
+  "not_found": 324,
+  "unit_mismatch": 452,
+  "wrong_metric": 777,
+  "wrong_period": 752
+ }
+}
