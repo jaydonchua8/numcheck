@@ -4,6 +4,8 @@ A claim is (metric, period, value as written). The checker reads the source text
 binds every number it can to a metric, a period and a unit scale, and then decides
 whether the claim is supported, and if not, what kind of mistake it looks like.
 
+This module checks structured claims. memo.py pulls the claims out of memo prose.
+
 Standard library only.
 """
 import json
@@ -81,25 +83,65 @@ RATIOS = {
 }
 
 
+_FOOTNOTE = re.compile(r"(?:\s*(?:\(\d{1,2}\)|\[\d{1,2}\]|\*+|[\u00b9\u00b2\u00b3\u2020]))+\s*$")
+
+
 def canon_metric(label):
-    s = label.lower().replace("adj.", "adj").replace("&", "and")
+    s = _FOOTNOTE.sub("", label)   # "Adjusted EBITDA (1)" and "Net Sales*" are footnote marks
+    s = s.lower().replace("adj.", "adj").replace("&", "and")
     s = re.sub(r"\s+", " ", re.sub(r"[^a-z0-9%() ]", " ", s)).strip()
     if s in _ALIAS_TO_METRIC:
         return _ALIAS_TO_METRIC[s]
     return re.sub(r"[^a-z0-9]+", "_", s).strip("_")
 
 
-_PERIOD_CELL = re.compile(r"^(?:FY\s?'?(?P<a>20\d{2}|\d{2})|(?P<b>20\d{2}))\s?[AEPB]?$", re.I)
-_PERIOD_PROSE = re.compile(r"\b(?:FY\s?'?(20\d{2}|\d{2})|(20\d{2}))[AE]?\b")
+# One period as it appears in a header cell or in a sentence. Kept as one pattern so the
+# table reader and memo.py agree on what a period is.
+PERIOD_PAT = (
+    r"(?:(?:FY|fiscal(?:\s+year)?)\s?'?(?:20\d{2}|\d{2})[AEPB]?"
+    r"|20\d{2}[AEPB]?"
+    r"|(?:LTM|TTM)(?:\s+(?:(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\.?[-'\s]?\d{2,4}"
+    r"|Q[1-4]\s?'?\d{2,4}))?"
+    r"|Q[1-4]\s?'?(?:20\d{2}|\d{2})|[1-4]Q\s?'?(?:20\d{2}|\d{2}))"
+)
+_FY = re.compile(r"^(?:(?:FY|fiscal(?:\s+year)?)\s?'?(?P<a>20\d{2}|\d{2})|(?P<b>20\d{2}))\s?[AEPB]?$", re.I)
+_LTM = re.compile(r"^(?:LTM|TTM)(?:\s+.+)?$", re.I)
+_QTR = re.compile(r"^(?:Q(?P<q1>[1-4])\s?'?(?P<y1>20\d{2}|\d{2})|(?P<q2>[1-4])Q\s?'?(?P<y2>20\d{2}|\d{2}))$", re.I)
+_PERIOD_PROSE = re.compile(r"(?<![\w$.,])" + PERIOD_PAT + r"(?![\w%])(?![.,]\d)", re.I)
+_HEADER_TAIL = re.compile(r"(?:\s+" + PERIOD_PAT + r"){2,}\s*$", re.I)
+
+
+def _year(y):
+    return y if len(y) == 4 else "20" + y
 
 
 def canon_period(text):
-    """'FY21', '2021A', 'FY2021E' -> 'FY2021'. None if it is not a period."""
-    m = _PERIOD_CELL.match(text.strip())
-    if not m:
-        return None
-    y = m.group("a") or m.group("b")
-    return "FY" + (y if len(y) == 4 else "20" + y)
+    """'FY21', '2021A', 'fiscal 2021' -> 'FY2021'; 'LTM Jun-25' -> 'LTM'; '3Q25' -> '2025Q3'.
+
+    None if it is not a period. A dated LTM column keeps no date: a document with two
+    different LTM columns would be merged, which Source.conflicts would then report.
+    """
+    t = text.strip()
+    m = _FY.match(t)
+    if m:
+        return "FY" + _year(m.group("a") or m.group("b"))
+    m = _QTR.match(t)
+    if m:
+        return "%sQ%s" % (_year(m.group("y1") or m.group("y2")), m.group("q1") or m.group("q2"))
+    if _LTM.match(t):
+        return "LTM"
+    return None
+
+
+def prior_period(period):
+    """The period one year earlier, or None when that is not defined (LTM)."""
+    m = re.match(r"^FY(\d{4})$", period or "")
+    if m:
+        return "FY%d" % (int(m.group(1)) - 1)
+    m = re.match(r"^(\d{4})Q([1-4])$", period or "")
+    if m:
+        return "%dQ%s" % (int(m.group(1)) - 1, m.group(2))
+    return None
 
 
 # ---------------------------------------------------------------- reading the source
@@ -143,6 +185,16 @@ def _cells(line):
     return [" ".join(toks[:k])] + toks[k:]
 
 
+def _header_periods(line):
+    """Canonical periods of a table header line, or [] if the line is not one."""
+    if "|" in line:
+        return [p for p in (canon_period(c) for c in _cells(line)) if p]
+    m = _HEADER_TAIL.search(" " + line)
+    if not m:
+        return []
+    return [canon_period(x.group(0)) for x in _PERIOD_PROSE.finditer(m.group(0))]
+
+
 def _scale_near(lines, i):
     """Scale declared on the header line or up to two lines above it."""
     for j in (i, i - 1, i - 2):
@@ -159,10 +211,8 @@ def _scale_near(lines, i):
 def _read_tables(lines, facts, used):
     i = 0
     while i < len(lines):
-        cells = _cells(lines[i])
-        periods = [(k, canon_period(c)) for k, c in enumerate(cells)]
-        periods = [(k, p) for k, p in periods if p]
-        if len(periods) < 2:
+        periods = list(enumerate(_header_periods(lines[i])))
+        if len(periods) < 2 or None in [p for _, p in periods]:
             i += 1
             continue
         scale = _scale_near(lines, i)
@@ -238,8 +288,9 @@ def read_source(text):
 # ---------------------------------------------------------------- checking
 
 SUPPORTED, DERIVED = "supported", "supported_derived"
-UNIT, PERIOD, METRIC, VALUE, NOT_FOUND, BAD = (
-    "unit_mismatch", "wrong_period", "wrong_metric", "value_mismatch", "not_found", "unparseable")
+UNIT, PERIOD, METRIC, VALUE, NOT_FOUND, BAD, SIGN = (
+    "unit_mismatch", "wrong_period", "wrong_metric", "value_mismatch", "not_found", "unparseable",
+    "wrong_sign")
 
 
 @dataclass
@@ -266,6 +317,13 @@ class Source:
             v.sort(key=lambda f: f.tol)   # most precise statement first
         self.periods = sorted({f.period for f in self.facts})
         self.metrics = sorted({f.metric for f in self.facts})
+        # Slots the document states twice with values that cannot both be right.
+        self.conflicts = {}
+        for key, fs in self.by.items():
+            for a in fs:
+                for b in fs:
+                    if a.kind == b.kind and a.line < b.line and abs(a.value - b.value) > a.tol + b.tol:
+                        self.conflicts.setdefault(key, []).append((a, b))
 
     def direct(self, metric, period, kind):
         for f in self.by.get((metric, period), []):
@@ -282,18 +340,30 @@ class Source:
                 return n.value / d.value * 100, [n, d]
         if metric.endswith("_growth"):
             base = metric[: -len("_growth")]
-            prev = "FY%d" % (int(period[2:]) - 1) if re.match(r"FY\d{4}$", period) else None
+            prev = prior_period(period)
             a, b = self.direct(base, period, "usd"), self.direct(base, prev, "usd")
-            if a and b and b.value:
+            if a and b and b.value > 0:
                 return (a.value / b.value - 1) * 100, [a, b]
+        if metric.endswith("_cagr"):
+            m = re.match(r"^FY(\d{4})-FY(\d{4})$", period)
+            if m and int(m.group(2)) > int(m.group(1)):
+                base = metric[: -len("_cagr")]
+                a = self.direct(base, "FY" + m.group(1), "usd")
+                b = self.direct(base, "FY" + m.group(2), "usd")
+                if a and b and a.value > 0 and b.value > 0:
+                    years = int(m.group(2)) - int(m.group(1))
+                    rate = (float(b.value / a.value) ** (1.0 / years) - 1) * 100
+                    return Fraction(rate).limit_denominator(10**9), [a, b]
         return None
 
     def lookups(self, metric, period, kind):
         """All (value, tol, evidence, is_derived) the source gives for this slot."""
         out = []
-        f = self.direct(metric, period, kind)
-        if f:
-            out.append((f.value, f.tol, [f], False))
+        for f in self.by.get((metric, period), []):
+            # The most precise statement decides. A coarser one ("$58.6 million" next to a
+            # table cell of 58,644) is only an alternative when the two cannot both be right.
+            if f.kind == kind and (not out or abs(f.value - out[0][0]) > f.tol + out[0][1]):
+                out.append((f.value, f.tol, [f], False))
         if kind == "pct":
             d = self.derived(metric, period)
             if d:
@@ -309,11 +379,24 @@ def _cite(ev):
     return ", ".join("line %d (%s %s = %s)" % (f.line, f.metric, f.period, f.raw) for f in ev)
 
 
-def check(source, metric, period, text):
-    """Check one claim against a Source. Returns a Verdict."""
+def check(source, metric, period, text, amount=None):
+    """Check one claim against a Source. Returns a Verdict.
+
+    amount lets a caller that has already parsed the value (memo.py) pass it in.
+    """
+    v = _check(source, metric, period, text, amount)
+    clash = source.conflicts.get((v.metric, v.period))
+    if clash and v.status != BAD:
+        a, b = clash[0]
+        v.note += "; note: the source disagrees with itself here (line %d says %s, line %d says %s)" % (
+            a.line, a.raw, b.line, b.raw)
+    return v
+
+
+def _check(source, metric, period, text, amount=None):
     metric_c = canon_metric(metric)
     period_c = canon_period(period) or period
-    amt = parse_amount(text)
+    amt = amount if amount is not None else parse_amount(text)
     v = Verdict(BAD, metric_c, period_c, text)
     if amt is None:
         v.note = "could not read the claimed value"
@@ -325,6 +408,12 @@ def check(source, metric, period, text):
         if _close(amt.value, val, max(amt.tol, tol)):
             v.status, v.evidence = (DERIVED if is_derived else SUPPORTED), ev
             v.note = _cite(ev)
+            return v
+
+    for val, tol, ev, _ in here:
+        if amt.value and _close(-amt.value, val, max(amt.tol, tol)):
+            v.status, v.evidence = SIGN, ev
+            v.note = "right size, opposite sign; source: %s" % _cite(ev)
             return v
 
     if kind == "usd":
@@ -345,7 +434,9 @@ def check(source, metric, period, text):
                 v.note = "this is the %s figure; source: %s" % (p, _cite(ev))
                 return v
 
-    others = list(source.metrics) + (list(RATIOS) + ["revenue_growth"] if kind == "pct" else [])
+    others = list(source.metrics) + (
+        list(RATIOS) + [m + "_growth" for m in source.metrics if not m.endswith(("_margin", "_growth"))]
+        if kind == "pct" else [])
     for m in dict.fromkeys(others):
         if m == metric_c:
             continue
@@ -364,6 +455,11 @@ def check(source, metric, period, text):
     return v
 
 
+def read_text(path):
+    with open(path, encoding="utf-8") as f:
+        return f.read()
+
+
 def check_all(text, claims):
     src = Source(text)
     return [check(src, c["metric"], c["period"], c["value"]) for c in claims]
@@ -373,8 +469,12 @@ def main(argv):
     if len(argv) != 3:
         print("usage: python numcheck.py source.txt claims.json")
         return 2
-    text = open(argv[1], encoding="utf-8").read()
-    claims = json.load(open(argv[2], encoding="utf-8"))
+    try:
+        text = read_text(argv[1])
+        claims = json.loads(read_text(argv[2]))
+    except (OSError, ValueError) as e:
+        print("could not read input: %s" % e)
+        return 2
     bad = 0
     for v in check_all(text, claims):
         bad += not v.ok

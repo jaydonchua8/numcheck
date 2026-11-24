@@ -1,64 +1,269 @@
 {
- "seed": 7,
- "docs": 400,
- "claims": 6384,
- "correct_claims": 3200,
- "wrong_claims": 3184,
- "by_error": {
-  "scale": {
-   "n": 452,
-   "string": 39.8,
-   "anyvalue": 99.8,
-   "numcheck": 100.0
+ "structured_claims": {
+  "seed": 7,
+  "docs": 400,
+  "claims": 6384,
+  "correct_claims": 3200,
+  "wrong_claims": 3184,
+  "by_error": {
+   "scale": {
+    "n": 452,
+    "string": 39.8,
+    "anyvalue": 99.8,
+    "numcheck": 100.0
+   },
+   "period": {
+    "n": 731,
+    "string": 78.0,
+    "anyvalue": 33.8,
+    "numcheck": 100.0
+   },
+   "metric": {
+    "n": 783,
+    "string": 74.8,
+    "anyvalue": 28.5,
+    "numcheck": 100.0
+   },
+   "digit": {
+    "n": 738,
+    "string": 99.5,
+    "anyvalue": 99.1,
+    "numcheck": 99.7
+   },
+   "fabricated": {
+    "n": 480,
+    "string": 98.8,
+    "anyvalue": 97.5,
+    "numcheck": 100.0
+   }
   },
-  "period": {
-   "n": 731,
-   "string": 78.0,
-   "anyvalue": 33.8,
-   "numcheck": 100.0
+  "false_reject_pct": {
+   "string": 74.5,
+   "anyvalue": 19.7,
+   "numcheck": 0.0
   },
-  "metric": {
-   "n": 783,
-   "string": 74.8,
-   "anyvalue": 28.5,
-   "numcheck": 100.0
+  "caught_pct": {
+   "string": 79.9,
+   "anyvalue": 66.6,
+   "numcheck": 99.9
   },
-  "digit": {
-   "n": 738,
-   "string": 99.5,
-   "anyvalue": 99.1,
-   "numcheck": 99.7
+  "diagnosis_pct": {
+   "scale": 100.0,
+   "period": 100.0,
+   "metric": 98.7
   },
-  "fabricated": {
-   "n": 480,
-   "string": 98.8,
-   "anyvalue": 97.5,
-   "numcheck": 100.0
+  "claims_per_second": 1829,
+  "numcheck_statuses": {
+   "supported_derived": 632,
+   "value_mismatch": 875,
+   "supported": 2570,
+   "not_found": 324,
+   "unit_mismatch": 452,
+   "wrong_metric": 779,
+   "wrong_period": 752
   }
  },
- "false_reject_pct": {
-  "string": 74.5,
-  "anyvalue": 19.7,
-  "numcheck": 0.0
- },
- "caught_pct": {
-  "string": 79.9,
-  "anyvalue": 66.6,
-  "numcheck": 99.9
- },
- "diagnosis_pct": {
-  "scale": 100.0,
-  "period": 100.0,
-  "metric": 98.7
- },
- "claims_per_second": 3418,
- "numcheck_statuses": {
-  "supported_derived": 632,
-  "value_mismatch": 877,
-  "supported": 2570,
-  "not_found": 324,
-  "unit_mismatch": 452,
-  "wrong_metric": 777,
-  "wrong_period": 752
+ "memos": {
+  "dev": {
+   "split": "dev",
+   "seed": 7,
+   "docs": 400,
+   "counts": {
+    "figures": 6914,
+    "bound": 6914,
+    "bound_right": 6914,
+    "bound_wrong": 0,
+    "weak": 0,
+    "right": 4582,
+    "right_supported": 4582,
+    "right_unbound": 0,
+    "right_flagged": 0,
+    "right_flagged_weak": 0,
+    "anyvalue_right_rejected": 701,
+    "wrong": 2332,
+    "wrong_flagged": 2332,
+    "wrong_unbound": 0,
+    "wrong_passed": 0,
+    "anyvalue_wrong_caught": 1292,
+    "other_numbers": 1661,
+    "other_bound": 0,
+    "other_flagged": 0,
+    "other_supported": 0
+   },
+   "by_error": {
+    "digit": {
+     "n": 566,
+     "flagged": 566,
+     "unbound": 0,
+     "passed": 0
+    },
+    "metric": {
+     "n": 650,
+     "flagged": 650,
+     "unbound": 0,
+     "passed": 0
+    },
+    "period": {
+     "n": 614,
+     "flagged": 614,
+     "unbound": 0,
+     "passed": 0
+    },
+    "scale": {
+     "n": 502,
+     "flagged": 502,
+     "unbound": 0,
+     "passed": 0
+    }
+   },
+   "pct": {
+    "figures_bound_to_right_slot": 100.0,
+    "figures_bound_to_wrong_slot": 0.0,
+    "figures_left_unbound": 0.0,
+    "wrong_figures_flagged": 100.0,
+    "wrong_figures_unbound": 0.0,
+    "wrong_figures_passed": 0.0,
+    "right_figures_supported": 100.0,
+    "right_figures_unbound": 0.0,
+    "right_figures_flagged": 0.0,
+    "anyvalue_wrong_figures_caught": 55.4,
+    "anyvalue_right_figures_rejected": 15.3,
+    "other_numbers_bound": 0.0
+   }
+  },
+  "heldout_a": {
+   "split": "heldout_a",
+   "seed": 1009,
+   "docs": 400,
+   "counts": {
+    "figures": 7422,
+    "bound": 7135,
+    "bound_right": 7135,
+    "bound_wrong": 0,
+    "weak": 0,
+    "right": 4934,
+    "right_supported": 4758,
+    "right_unbound": 176,
+    "right_flagged": 0,
+    "right_flagged_weak": 0,
+    "anyvalue_right_rejected": 637,
+    "wrong": 2488,
+    "wrong_flagged": 2377,
+    "wrong_unbound": 111,
+    "wrong_passed": 0,
+    "anyvalue_wrong_caught": 1366,
+    "other_numbers": 1882,
+    "other_bound": 0,
+    "other_flagged": 0,
+    "other_supported": 0
+   },
+   "by_error": {
+    "digit": {
+     "n": 637,
+     "flagged": 610,
+     "unbound": 27,
+     "passed": 0
+    },
+    "metric": {
+     "n": 660,
+     "flagged": 627,
+     "unbound": 33,
+     "passed": 0
+    },
+    "period": {
+     "n": 637,
+     "flagged": 609,
+     "unbound": 28,
+     "passed": 0
+    },
+    "scale": {
+     "n": 554,
+     "flagged": 531,
+     "unbound": 23,
+     "passed": 0
+    }
+   },
+   "pct": {
+    "figures_bound_to_right_slot": 96.1,
+    "figures_bound_to_wrong_slot": 0.0,
+    "figures_left_unbound": 3.9,
+    "wrong_figures_flagged": 95.5,
+    "wrong_figures_unbound": 4.5,
+    "wrong_figures_passed": 0.0,
+    "right_figures_supported": 96.4,
+    "right_figures_unbound": 3.6,
+    "right_figures_flagged": 0.0,
+    "anyvalue_wrong_figures_caught": 54.9,
+    "anyvalue_right_figures_rejected": 12.9,
+    "other_numbers_bound": 0.0
+   }
+  },
+  "heldout_b": {
+   "split": "heldout_b",
+   "seed": 2027,
+   "docs": 400,
+   "counts": {
+    "figures": 7391,
+    "bound": 6476,
+    "bound_right": 6162,
+    "bound_wrong": 314,
+    "weak": 0,
+    "right": 4908,
+    "right_supported": 4101,
+    "right_unbound": 596,
+    "right_flagged": 211,
+    "right_flagged_weak": 0,
+    "anyvalue_right_rejected": 757,
+    "wrong": 2483,
+    "wrong_flagged": 2129,
+    "wrong_unbound": 319,
+    "wrong_passed": 35,
+    "anyvalue_wrong_caught": 1393,
+    "other_numbers": 1644,
+    "other_bound": 0,
+    "other_flagged": 0,
+    "other_supported": 0
+   },
+   "by_error": {
+    "digit": {
+     "n": 639,
+     "flagged": 530,
+     "unbound": 107,
+     "passed": 2
+    },
+    "metric": {
+     "n": 685,
+     "flagged": 568,
+     "unbound": 84,
+     "passed": 33
+    },
+    "period": {
+     "n": 667,
+     "flagged": 566,
+     "unbound": 101,
+     "passed": 0
+    },
+    "scale": {
+     "n": 492,
+     "flagged": 465,
+     "unbound": 27,
+     "passed": 0
+    }
+   },
+   "pct": {
+    "figures_bound_to_right_slot": 83.4,
+    "figures_bound_to_wrong_slot": 4.2,
+    "figures_left_unbound": 12.4,
+    "wrong_figures_flagged": 85.7,
+    "wrong_figures_unbound": 12.8,
+    "wrong_figures_passed": 1.4,
+    "right_figures_supported": 83.6,
+    "right_figures_unbound": 12.1,
+    "right_figures_flagged": 4.3,
+    "anyvalue_wrong_figures_caught": 56.1,
+    "anyvalue_right_figures_rejected": 15.4,
+    "other_numbers_bound": 0.0
+   }
+  }
  }
 }

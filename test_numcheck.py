@@ -8,8 +8,8 @@ import numcheck as nc
 from gen import corpus
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-CIM = open(os.path.join(HERE, "sample_cim.txt"), encoding="utf-8").read()
-CLAIMS = json.load(open(os.path.join(HERE, "sample_claims.json"), encoding="utf-8"))
+CIM = nc.read_text(os.path.join(HERE, "sample_cim.txt"))
+CLAIMS = json.loads(nc.read_text(os.path.join(HERE, "sample_claims.json")))
 
 
 class Amounts(unittest.TestCase):
@@ -115,6 +115,70 @@ class Checking(unittest.TestCase):
     def test_label_ending_in_a_number(self):
         doc = "($ in thousands) FY2023 FY2024\nRevenue 100 200\nTop 10 Customers 40 90\n"
         self.assertEqual(nc.Source(doc).direct("top_10_customers", "FY2024", "usd").value, 90000)
+
+
+class RealisticLayouts(unittest.TestCase):
+    """Things a first version skipped: LTM and quarter columns, footnote marks, sign errors,
+    a document that disagrees with itself, and compound growth."""
+
+    DOC = ("Summary Financials ($ in millions)\n"
+           "                      FY2023   FY2024   LTM Jun-25   Q2 2025\n"
+           "Net Sales (1)           51.9     58.6         60.1      15.8\n"
+           "Adj. EBITDA*             7.8      9.4          9.9       2.6\n"
+           "Net Income (Loss)      (0.3)      2.4          2.6       0.7\n"
+           "(1) Net of returns of $1.2 million.\n"
+           "\n"
+           "In FY2024, revenue was $58.9 million.\n")
+
+    def setUp(self):
+        self.src = nc.Source(self.DOC)
+
+    def test_ltm_and_quarter_columns(self):
+        self.assertEqual(nc.canon_period("LTM Jun-25"), "LTM")
+        self.assertEqual(nc.canon_period("TTM"), "LTM")
+        self.assertEqual(nc.canon_period("3Q25"), "2025Q3")
+        self.assertEqual(nc.canon_period("fiscal year 2024"), "FY2024")
+        self.assertTrue(nc.check(self.src, "revenue", "LTM", "$60.1M").ok)
+        self.assertTrue(nc.check(self.src, "adjusted_ebitda", "Q2 2025", "$2.6M").ok)
+        self.assertEqual(nc.check(self.src, "revenue", "LTM", "$58.6M").status, "wrong_period")
+
+    def test_footnote_marks_do_not_change_the_metric(self):
+        self.assertEqual(nc.canon_metric("Adjusted EBITDA (1)"), "adjusted_ebitda")
+        self.assertEqual(nc.canon_metric("Net Sales*"), "revenue")
+        self.assertEqual(nc.canon_metric("Net Income (Loss)"), "net_income")
+        self.assertEqual(self.src.direct("revenue", "FY2023", "usd").value, 51900000)
+
+    def test_footnote_text_is_not_a_table_row(self):
+        self.assertNotIn(Fraction(1200000), {f.value for f in self.src.facts})
+
+    def test_wrong_sign(self):
+        self.assertEqual(nc.check(self.src, "net_income", "FY2023", "$0.3M").status, "wrong_sign")
+        self.assertTrue(nc.check(self.src, "net_income", "FY2023", "($0.3M)").ok)
+
+    def test_source_that_disagrees_with_itself(self):
+        self.assertIn(("revenue", "FY2024"), self.src.conflicts)
+        for text in ("$58.6M", "$58.9M"):   # either statement supports a claim, with a warning
+            v = nc.check(self.src, "revenue", "FY2024", text)
+            self.assertTrue(v.ok, text)
+            self.assertIn("disagrees with itself", v.note)
+        self.assertEqual(nc.check(self.src, "revenue", "FY2024", "$58.7M").status, "value_mismatch")
+
+    def test_coarser_restatement_does_not_loosen_the_check(self):
+        # sample_cim.txt prints 58,644 in the table and "$58.6 million" in a sentence
+        src = nc.Source(CIM)
+        self.assertNotIn(("revenue", "FY2024"), src.conflicts)
+        self.assertEqual(nc.check(src, "revenue", "FY2024", "$58,610K").status, "value_mismatch")
+
+    def test_cagr_and_growth(self):
+        self.assertTrue(nc.check(self.src, "revenue_cagr", "FY2023-FY2024", "12.9%").ok)
+        self.assertEqual(nc.check(self.src, "revenue_cagr", "FY2024-FY2023", "12.9%").status, "not_found")
+        self.assertEqual(nc.check(self.src, "revenue_growth", "LTM", "2.6%").status, "not_found")
+        # growth from a loss is not defined, so it is not computed
+        self.assertEqual(nc.check(self.src, "net_income_growth", "FY2024", "900.0%").status, "not_found")
+
+    def test_sentence_with_two_periods_is_not_a_table_header(self):
+        src = nc.Source("Between FY2023 and FY2024 the Company added 2 branches.\nRevenue 10 20\n")
+        self.assertEqual(src.facts, [])
 
 
 class Synthetic(unittest.TestCase):
